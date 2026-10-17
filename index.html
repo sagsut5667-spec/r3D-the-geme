@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>R3D - Ranbhumi 3D</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            background-color: #000;
+        }
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            text-shadow: 1px 1px 3px #000;
+            font-weight: bold;
+            font-size: 18px;
+            z-index: 10;
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 2px solid #000;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 10;
+        }
+        #controls {
+            position: absolute;
+            bottom: 30px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 40px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+        .btn {
+            width: 75px;
+            height: 75px;
+            background: rgba(255, 255, 255, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: bold;
+            font-size: 16px;
+            touch-action: manipulation;
+        }
+        .btn:active {
+            background: rgba(255, 0, 0, 0.6);
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="hud">
+        HP: <span id="health">100</span> | Ammo: <span id="ammo">30</span>/∞
+    </div>
+    <div id="crosshair"></div>
+    
+    <div id="game-container"></div>
+
+    <div id="controls">
+        <div id="move-pad" style="display: flex; gap: 10px;">
+            <button class="btn" id="btn-up">▲</button>
+            <button class="btn" id="btn-down">▼</button>
+        </div>
+        <button class="btn" id="btn-fire" style="background: rgba(255, 0, 0, 0.5);">FIRE</button>
+    </div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+
+        const container = document.getElementById('game-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb);
+        scene.fog = new THREE.FogExp2(0x87ceeb, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        container.appendChild(renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(20, 40, 20);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        const groundGeo = new THREE.PlaneGeometry(200, 200);
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x2e8b57 });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        for (let i = 0; i < 15; i++) {
+            const boxGeo = new THREE.BoxGeometry(4, 6, 4);
+            const boxMat = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+            const box = new THREE.Mesh(boxGeo, boxMat);
+            box.position.set((Math.random() - 0.5) * 100, 3, (Math.random() - 0.5) * 100);
+            box.castShadow = true;
+            box.receiveShadow = true;
+            scene.add(box);
+        }
+
+        const playerGroup = new THREE.Group();
+        const playerGeo = new THREE.CylinderGeometry(0.8, 0.8, 2.5, 16);
+        const playerMat = new THREE.MeshStandardMaterial({ color: 0x1e90ff });
+        const playerMesh = new THREE.Mesh(playerGeo, playerMat);
+        playerMesh.position.y = 1.25;
+        playerMesh.castShadow = true;
+        playerGroup.add(playerMesh);
+
+        const gunGeo = new THREE.BoxGeometry(0.2, 0.2, 1);
+        const gunMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+        const gunMesh = new THREE.Mesh(gunGeo, gunMat);
+        gunMesh.position.set(0.6, 1.5, -0.6);
+        playerGroup.add(gunMesh);
+
+        scene.add(playerGroup);
+
+        const keys = {};
+        let moveForward = false, moveBackward = false;
+
+        window.addEventListener('keydown', (e) => keys[e.code] = true);
+        window.addEventListener('keyup', (e) => keys[e.code] = false);
+
+        document.getElementById('btn-up').addEventListener('touchstart', (e) => { e.preventDefault(); moveForward = true; });
+        document.getElementById('btn-up').addEventListener('touchend', () => moveForward = false);
+        document.getElementById('btn-down').addEventListener('touchstart', (e) => { e.preventDefault(); moveBackward = true; });
+        document.getElementById('btn-down').addEventListener('touchend', () => moveBackward = false);
+        document.getElementById('btn-fire').addEventListener('touchstart', (e) => { e.preventDefault(); shoot(); });
+
+        let touchStartX = 0;
+        window.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
+        window.addEventListener('touchmove', (e) => {
+            let deltaX = e.touches[0].clientX - touchStartX;
+            playerGroup.rotation.y -= deltaX * 0.005;
+            touchStartX = e.touches[0].clientX;
+        });
+
+        window.addEventListener('click', () => shoot());
+
+        const bullets = [];
+        function shoot() {
+            const bulletGeo = new THREE.SphereGeometry(0.15, 8, 8);
+            const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            const bullet = new THREE.Mesh(bulletGeo, bulletMat);
+
+            bullet.position.copy(playerGroup.position);
+            bullet.position.y += 1.5;
+
+            const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(playerGroup.quaternion);
+            bullet.userData = { direction: dir, speed: 1.5, life: 60 };
+
+            scene.add(bullet);
+            bullets.push(bullet);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const speed = 0.15;
+            if (keys['KeyW'] || keys['ArrowUp'] || moveForward) playerGroup.translateZ(-speed);
+            if (keys['KeyS'] || keys['ArrowDown'] || moveBackward) playerGroup.translateZ(speed);
+            if (keys['KeyA'] || keys['ArrowLeft']) playerGroup.rotation.y += 0.04;
+            if (keys['KeyD'] || keys['ArrowRight']) playerGroup.rotation.y -= 0.04;
+
+            const camOffset = new THREE.Vector3(0, 4, 8).applyQuaternion(playerGroup.quaternion);
+            camera.position.copy(playerGroup.position).add(camOffset);
+            camera.lookAt(playerGroup.position.clone().add(new THREE.Vector3(0, 1.5, 0)));
+
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                b.position.addScaledVector(b.userData.direction, b.userData.speed);
+                b.userData.life--;
+
+                if (b.userData.life <= 0) {
+                    scene.remove(b);
+                    bullets.splice(i, 1);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
