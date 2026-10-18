@@ -28,6 +28,7 @@
             font-weight: bold;
             font-size: 18px;
             z-index: 10;
+            display: none;
         }
         #crosshair {
             position: absolute;
@@ -41,12 +42,13 @@
             transform: translate(-50%, -50%);
             pointer-events: none;
             z-index: 10;
+            display: none;
         }
         #controls {
             position: absolute;
             bottom: 30px;
             width: 100%;
-            display: flex;
+            display: none;
             justify-content: space-between;
             padding: 0 40px;
             box-sizing: border-box;
@@ -69,10 +71,85 @@
         .btn:active {
             background: rgba(255, 0, 0, 0.6);
         }
+
+        /* Disclaimer Modal Popup Style */
+        #disclaimer-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.92);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .modal-content {
+            background: #1a1a1a;
+            color: #ffffff;
+            border: 2px solid #ff9900;
+            border-radius: 12px;
+            max-width: 550px;
+            width: 100%;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(255, 153, 0, 0.4);
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        .modal-content h2 {
+            color: #ff9900;
+            margin-top: 0;
+            font-size: 22px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+        .modal-content p {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #dddddd;
+            text-align: justify;
+            margin: 15px 0;
+        }
+        .accept-btn {
+            background: #ff9900;
+            color: #000;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: 0.3s;
+        }
+        .accept-btn:hover {
+            background: #e68a00;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
+
+    <!-- Legal Disclaimer Popup -->
+    <div id="disclaimer-modal">
+        <div class="modal-content">
+            <h2>⚠️ अस्वीकरण आणि कायदेशीर अटी (Disclaimer)</h2>
+            <p>
+                हे ॲप्लिकेशन / गेम (<strong>R3D - Ranbhumi 3D</strong>) पूर्णपणे केवळ मनोरंजन आणि काल्पनिक उद्देशाने तयार करण्यात आले आहे. 
+            </p>
+            <p>
+                या गेममधील कोणतीही पात्रे, नावे, ठिकाणे, घटना किंवा दृश्ये यांचा कोणत्याही जिवंत किंवा मृत व्यक्तीशी, किंवा गुगल (Google) व इतर कोणत्याही वेब/गेमिंग साईट्सवर उपलब्ध असलेल्या इतर गेमशी काहीही संबंध नाही. असल्यास तो केवळ एक योगायोग समजावा.
+            </p>
+            <p>
+                हा गेम पूर्णपणे स्वतंत्र (Original Code) असून कोणत्याही कॉपीराइट किंवा ट्रेडमार्कचे उल्लंघन करत नाही. गेम खेळण्यासाठी खालील बटणावर क्लिक करा.
+            </p>
+            <button class="accept-btn" onclick="startGame()">स्वीकार्य आहे / खेळा (Play)</button>
+        </div>
+    </div>
 
     <div id="hud">
         HP: <span id="health">100</span> | Ammo: <span id="ammo">30</span>/∞
@@ -90,6 +167,13 @@
     </div>
 
     <script>
+        function startGame() {
+            document.getElementById('disclaimer-modal').style.display = 'none';
+            document.getElementById('hud').style.display = 'block';
+            document.getElementById('crosshair').style.display = 'block';
+            document.getElementById('controls').style.display = 'flex';
+        }
+
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js');
         }
