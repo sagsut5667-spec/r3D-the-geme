@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>R3D - Ranbhumi 3D</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: sans-serif; }
+        #game-container { width: 100vw; height: 100vh; position: relative; }
+        
+        /* UI Overlay */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; color: #fff; text-shadow: 1px 1px 3px #000; z-index: 10; }
+        .stats-panel { background: rgba(0,0,0,0.7); padding: 12px 18px; border-radius: 8px; border: 1px solid rgba(255,215,0,0.4); width: fit-content; }
+        .level-info { font-size: 18px; font-weight: bold; color: #ffcc00; margin-bottom: 5px; }
+        .status-bar { font-size: 14px; margin-top: 3px; }
+        
+        /* Controls */
+        .controls { position: absolute; bottom: 20px; left: 20px; right: 20px; display: flex; justify-content: space-between; align-items: flex-end; pointer-events: auto; }
+        .touch-btn { width: 65px; height: 65px; background: rgba(255,255,255,0.25); border: 2px solid rgba(255,255,255,0.6); border-radius: 50%; color: white; font-weight: bold; font-size: 14px; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+        .dpad { display: grid; grid-template-columns: repeat(3, 50px); grid-template-rows: repeat(3, 50px); gap: 5px; }
+        .action-btns { display: flex; gap: 12px; align-items: center; }
+        .fire-btn { background: rgba(220, 53, 69, 0.8); border-color: #ff4d4d; width: 75px; height: 75px; font-size: 16px; }
+        .vehicle-btn { background: rgba(40, 167, 69, 0.8); border-color: #5cd65c; font-size: 12px; width: 85px; height: 85px; text-align: center; }
+        
+        /* Crosshair */
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 14px; height: 14px; border: 2px solid rgba(255, 255, 255, 0.9); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 10; }
+        #crosshair::after { content: ''; position: absolute; top: 4px; left: 4px; width: 2px; height: 2px; background: #ff0000; border-radius: 50%; }
+
+        /* Disclaimer & Start Modal */
+        #modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; pointer-events: auto; z-index: 100; padding: 20px; text-align: center; }
+        .logo-preview { width: 90px; height: 90px; border-radius: 15px; border: 2px solid #ffcc00; margin-bottom: 15px; background: url('icon.png') center/cover no-repeat; box-shadow: 0 0 15px rgba(255,204,0,0.5); }
+        #modal h1 { color: #ffcc00; font-size: 26px; margin-bottom: 10px; text-transform: uppercase; }
+        #modal p { font-size: 14px; margin-bottom: 20px; max-width: 400px; color: #ddd; line-height: 1.5; }
+        #modal button { padding: 12px 30px; font-size: 18px; background: #ffcc00; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; color: #000; box-shadow: 0 4px 10px rgba(255,204,0,0.3); }
+    </style>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <div id="game-container">
+        <div id="crosshair"></div>
+        
+        <div id="ui-layer">
+            <div class="stats-panel">
+                <div class="level-info" id="level-display">LEVEL 1: MALL ROAD SWEEP</div>
+                <div class="status-bar" id="target-display">टार्गेट: शत्रू नष्ट करा (0/5)</div>
+                <div class="status-bar" id="health-display">HP: 100 | Ammo: 30/∞</div>
+                <div class="status-bar" id="vehicle-display">वाहन: पायी (On Foot)</div>
+            </div>
+
+            <div class="controls">
+                <div class="dpad">
+                    <div></div><div class="touch-btn" id="btn-up">▲</div><div></div>
+                    <div class="touch-btn" id="btn-left">◀</div><div></div><div class="touch-btn" id="btn-right">▶</div>
+                    <div></div><div class="touch-btn" id="btn-down">▼</div><div></div>
+                </div>
+                <div class="action-btns">
+                    <div class="touch-btn vehicle-btn" id="btn-vehicle">वाहन बदला</div>
+                    <div class="touch-btn fire-btn" id="btn-fire">FIRE</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="modal">
+            <div class="logo-preview"></div>
+            <h1>R3D - RANBHUMI 3D</h1>
+            <p>अस्वीकरण: हा गेम पूर्णपणे काल्पनिक आहे. यामध्ये भारतीय मॉल रोड, टँक, बाईक, प्लेन आणि हेलिकॉप्टरचे मिशन दिले आहेत. कॉपीराइट फ्री आणि मनोरंजनासाठी तयार केला आहे.</p>
+            <button id="start-btn" onclick="startGame()">स्वीकार्य आहे / खेळा (Play)</button>
+        </div>
+    </div>
+
+    <!-- Background Battle Audio -->
+    <script>
+        let audioCtx;
+        function playBackgroundMusic() {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(110, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.start();
+            } catch(e) { console.log(e); }
+        }
+
+        let scene, camera, renderer;
+        let player, playerGun;
+        let enemies = [], vehicles = [];
+        let currentLevel = 1;
+        let kills = 0;
+        let targetKills = 5;
+        let health = 100;
+
+        function initScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB); 
+            scene.fog = new THREE.FogExp2(0x87CEEB, 0.012);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.getElementById('game-container').appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+            sun.position.set(50, 100, 50);
+            sun.castShadow = true;
+            scene.add(sun);
+
+            createMallRoadEnvironment();
+            createPlayer();
+            spawnIndianVehicles();
+            spawnEnemies();
+
+            camera.position.set(0, 3, 5);
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        function createMallRoadEnvironment() {
+            const roadGeo = new THREE.PlaneGeometry(80, 600);
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+            const road = new THREE.Mesh(roadGeo, roadMat);
+            road.rotation.x = -Math.PI / 2;
+            road.receiveShadow = true;
+            scene.add(road);
+
+            const groundGeo = new THREE.PlaneGeometry(300, 600);
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0x2d8a4e });
+            const groundLeft = new THREE.Mesh(groundGeo, groundMat);
+            groundLeft.rotation.x = -Math.PI / 2;
+            groundLeft.position.x = -190;
+            scene.add(groundLeft);
+
+            const groundRight = groundLeft.clone();
+            groundRight.position.x = 190;
+            scene.add(groundRight);
+
+            for (let i = -250; i < 250; i += 50) {
+                createMallBuilding(-55, i, 0xff8c00, "Indian Mall");
+                createMallBuilding(55, i, 0x008080, "Shopping Plaza");
+            }
+        }
+
+        function createMallBuilding(x, z, color, name) {
+            const height = 20 + Math.random() * 15;
+            const geo = new THREE.BoxGeometry(25, height, 35);
+            const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.3 });
+            const building = new THREE.Mesh(geo, mat);
+            building.position.set(x, height / 2, z);
+            building.castShadow = true;
+            building.receiveShadow = true;
+            scene.add(building);
+        }
+
+        function createPlayer() {
+            player = new THREE.Group();
+            
+            const bodyGeo = new THREE.CylinderGeometry(0.6, 0.6, 2.2);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1e90ff });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 1.1;
+            player.add(body);
+
+            const gunGeo = new THREE.BoxGeometry(0.25, 0.25, 1.2);
+            const gunMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+            playerGun = new THREE.Mesh(gunGeo, gunMat);
+            playerGun.position.set(0.5, 1.3, -0.6);
+            player.add(playerGun);
+
+            player.position.set(0, 0, 200);
+            scene.add(player);
+        }
+
+        function spawnIndianVehicles() {
+            createVehicleModel(0, 0.8, 120, 0x556b2f, 'Indian Army Tank', 'tank');
+            createVehicleModel(-10, 0.5, 90, 0xb22222, 'Sports Bike', 'bike');
+            createVehicleModel(12, 4, 50, 0x4169e1, 'Combat Helicopter', 'heli');
+            createVehicleModel(-12, 6, 0, 0x708090, 'Fighter Jet Plane', 'plane');
+        }
+
+        function createVehicleModel(x, y, z, color, name, type) {
+            const group = new THREE.Group();
+            const geo = new THREE.BoxGeometry(3, 1.5, 5);
+            const mat = new THREE.MeshStandardMaterial({ color: color });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.castShadow = true;
+            group.add(mesh);
+            
+            group.position.set(x, y, z);
+            group.userData = { name: name, type: type };
+            scene.add(group);
+            vehicles.push(group);
+        }
+
+        function spawnEnemies() {
+            for (let i = 0; i < targetKills; i++) {
+                const geo = new THREE.CylinderGeometry(0.6, 0.6, 2.2);
+                const mat = new THREE.MeshStandardMaterial({ color: 0xdc143c });
+                const enemy = new THREE.Mesh(geo, mat);
+                
+                enemy.position.set((Math.random() - 0.5) * 50, 1.1, Math.random() * 250 - 100);
+                scene.add(enemy);
+                enemies.push(enemy);
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (player) {
+                camera.position.x = player.position.x;
+                camera.position.y = player.position.y + 3.5;
+                camera.position.z = player.position.z + 8;
+                camera.lookAt(player.position.x, player.position.y + 1, player.position.z - 10);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function startGame() {
+            document.getElementById('modal').style.display = 'none';
+            playBackgroundMusic();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.onload = initScene;
+    </script>
+</body>
+</html>
